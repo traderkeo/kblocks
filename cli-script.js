@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
@@ -9,15 +7,22 @@ program
   .command('add <component>')
   .description('Add a specific component to your project')
   .action((component) => {
-    const componentDir = path.join(process.cwd(), 'components');
-    if (!fs.existsSync(componentDir)){
-      fs.mkdirSync(componentDir);
+    // Create a directory path for the component
+    const componentDirPath = path.join(process.cwd(), 'components', component);
+    
+    // Check if the directory exists, if not, create it
+    if (!fs.existsSync(componentDirPath)){
+      fs.mkdirSync(componentDirPath, { recursive: true });
     }
 
-    const componentPath = path.join(componentDir, `${component}.tsx`);
-    // Example URL structure (modify this based on where your components are hosted)
-    const componentUrl = `https://mycomponentsrepo.com/src/components/${component}.tsx`;
-    downloadComponent(componentUrl, componentPath);
+    // Set the path for the component file (index.tsx)
+    const componentFilePath = path.join(componentDirPath, 'index.tsx');
+    
+    // URL to download the component from your GitHub repository
+    const componentUrl = `https://raw.githubusercontent.com/traderkeo/kblocks/master/src/components/${component}/index.tsx`;
+    
+    // Download the component
+    downloadComponent(componentUrl, componentFilePath);
   });
 
 program.parse(process.argv);
