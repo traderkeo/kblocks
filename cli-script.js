@@ -27,32 +27,41 @@ program
 program.parse(process.argv);
 
 function downloadAndExtractComponent(url, extractPath, componentName) {
-  axios({
-    method: 'get',
-    url: url,
-    responseType: 'stream'
-  })
-  .then(function (response) {
-    response.data
-      .pipe(unzipper.Parse())
-      .on('entry', function (entry) {
-        const fullPath = path.join(extractPath, entry.path.split(`${componentName}/`)[1]);
-        if (entry.type === 'Directory') {
-          if (!fs.existsSync(fullPath)) {
-            fs.mkdirSync(fullPath, { recursive: true });
+    axios({
+      method: 'get',
+      url: url,
+      responseType: 'stream'
+    })
+    .then(function (response) {
+      response.data
+        .pipe(unzipper.Parse())
+        .on('entry', function (entry) {
+          console.log('Entry path:', entry.path); // Debug statement
+  
+          // Check if the entry path includes the component's folder
+          if (entry.path.includes(`${componentName}/`)) {
+            const relativePath = entry.path.split(`${componentName}/`)[1];
+            
+            if (relativePath) {
+              const fullPath = path.join(extractPath, relativePath);
+              if (entry.type === 'Directory') {
+                if (!fs.existsSync(fullPath)) {
+                  fs.mkdirSync(fullPath, { recursive: true });
+                }
+                entry.autodrain();
+              } else {
+                entry.pipe(fs.createWriteStream(fullPath));
+              }
+            } else {
+              console.error('Undefined relative path for:', entry.path);
+              entry.autodrain();
+            }
+          } else {
+            entry.autodrain();
           }
-          entry.autodrain();
-        } else {
-          // Ensure the directory exists before writing the file
-          const directory = path.dirname(fullPath);
-          if (!fs.existsSync(directory)) {
-            fs.mkdirSync(directory, { recursive: true });
-          }
-          entry.pipe(fs.createWriteStream(fullPath));
-        }
-      });
-  })
-  .catch(function (error) {
-    console.error('Error downloading the component:', error);
-  });
-}
+        });
+    })
+    .catch(function (error) {
+      console.error('Error downloading the component:', error);
+    });
+  }
