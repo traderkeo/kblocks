@@ -2,40 +2,45 @@
 const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios'); // for HTTP requests
+const axios = require('axios');
+const unzipper = require('unzipper'); // npm package to extract ZIP files
 
 program
   .command('add <component>')
   .description('Add a specific component to your project')
   .action((component) => {
-    // Create a directory path for the component
-    const componentDirPath = path.join(process.cwd(), 'components', component);
-    
-    // Check if the directory exists, if not, create it
-    if (!fs.existsSync(componentDirPath)){
-      fs.mkdirSync(componentDirPath, { recursive: true });
+    const componentDir = path.join(process.cwd(), 'components');
+    if (!fs.existsSync(componentDir)) {
+      fs.mkdirSync(componentDir, { recursive: true });
     }
 
-    // Set the path for the component file (index.tsx)
-    const componentFilePath = path.join(componentDirPath, 'index.tsx');
+    const componentZipUrl = `https://github.com/traderkeo/kblocks/archive/refs/heads/master.zip`;
+    const componentFolderPath = path.join(componentDir, component);
     
-    // URL to download the component from your GitHub repository
-    const componentUrl = `https://raw.githubusercontent.com/traderkeo/kblocks/master/src/components/${component}/index.tsx`;
-    
-    // Download the component
-    downloadComponent(componentUrl, componentFilePath);
+    downloadAndExtractComponent(componentZipUrl, componentFolderPath, component);
   });
 
 program.parse(process.argv);
 
-function downloadComponent(url, filePath) {
+function downloadAndExtractComponent(url, extractPath, componentName) {
   axios({
     method: 'get',
     url: url,
     responseType: 'stream'
   })
   .then(function (response) {
-    response.data.pipe(fs.createWriteStream(filePath));
+    response.data
+      .pipe(unzipper.Parse())
+      .on('entry', function (entry) {
+        const fileName = entry.path;
+        const isDesiredFile = fileName.includes(`${componentName}/`); // Filter files specific to the component
+        if (isDesiredFile) {
+          const outputPath = path.join(extractPath, fileName.split(`${componentName}/`)[1]);
+          entry.pipe(fs.createWriteStream(outputPath));
+        } else {
+          entry.autodrain();
+        }
+      });
   })
   .catch(function (error) {
     console.error('Error downloading the component:', error);
