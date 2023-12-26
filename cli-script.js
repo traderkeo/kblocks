@@ -3,7 +3,7 @@ const { program } = require('commander');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const unzipper = require('unzipper'); // npm package to extract ZIP files
+const unzipper = require('unzipper');
 
 program
   .command('add <component>')
@@ -17,6 +17,10 @@ program
     const componentZipUrl = `https://github.com/traderkeo/kblocks/archive/refs/heads/master.zip`;
     const componentFolderPath = path.join(componentDir, component);
     
+    if (!fs.existsSync(componentFolderPath)) {
+      fs.mkdirSync(componentFolderPath, { recursive: true });
+    }
+
     downloadAndExtractComponent(componentZipUrl, componentFolderPath, component);
   });
 
@@ -32,13 +36,19 @@ function downloadAndExtractComponent(url, extractPath, componentName) {
     response.data
       .pipe(unzipper.Parse())
       .on('entry', function (entry) {
-        const fileName = entry.path;
-        const isDesiredFile = fileName.includes(`${componentName}/`); // Filter files specific to the component
-        if (isDesiredFile) {
-          const outputPath = path.join(extractPath, fileName.split(`${componentName}/`)[1]);
-          entry.pipe(fs.createWriteStream(outputPath));
-        } else {
+        const fullPath = path.join(extractPath, entry.path.split(`${componentName}/`)[1]);
+        if (entry.type === 'Directory') {
+          if (!fs.existsSync(fullPath)) {
+            fs.mkdirSync(fullPath, { recursive: true });
+          }
           entry.autodrain();
+        } else {
+          // Ensure the directory exists before writing the file
+          const directory = path.dirname(fullPath);
+          if (!fs.existsSync(directory)) {
+            fs.mkdirSync(directory, { recursive: true });
+          }
+          entry.pipe(fs.createWriteStream(fullPath));
         }
       });
   })
